@@ -22,23 +22,28 @@ def translate_audio(audio_path, segments_dict, model_name="base"):
             temp_file = "temp_segment.wav"
             audio_segment.export(temp_file, format="wav")
 
-            result = model.transcribe(temp_file, task="translate", language=current_language)
+            mel = whisper.log_mel_spectrogram(audio_segment).to(model.device)
+            options = whisper.DecodingOptions(task='transcribe', fp16=False)
+            result = whisper.decode(model, mel, options)
             translated_texts.append(result['text'])
 
             os.remove(temp_file)
 
             # Update the start time and current language
-            start_time = end_time - 1
+            start_time = end_time
             current_language = language
 
     # Process the final segment
-    start_ms = start_time * 1000
+    start_ms = start_time
     end_ms = len(full_audio)  # Till the end of the audio
     audio_segment = full_audio[start_ms:end_ms]
     temp_file = "temp_segment.wav"
     audio_segment.export(temp_file, format="wav")
 
-    result = model.transcribe(temp_file, task="translate", language=current_language)
+    mel = whisper.log_mel_spectrogram(audio_segment).to(model.device)
+    options = whisper.DecodingOptions(task='transcribe', fp16=False)
+    result = whisper.decode(model, mel, options)
+    translated_texts.append(result['text'])
     translated_texts.append(result['text'])
     os.remove(temp_file)
 
