@@ -10,31 +10,37 @@ def translate_audio(audio_path, segments_dict, model_name="base"):
 
     translated_texts = []
     start_time = 0  # Start of the first segment
+    current_language = list(segments_dict.values())[0]  # Language of the first segment
 
     for end_time, language in segments_dict.items():
-        start_ms = start_time * 1000
-        end_ms = end_time * 1000
+        if language != current_language:
+            # Process the accumulated segment in the current language
+            start_ms = start_time
+            end_ms = end_time - 1  # Adjusting to include the last moment of the previous language
 
-        audio_segment = full_audio[start_ms:end_ms]
-        temp_file = "temp_segment.wav"
-        audio_segment.export(temp_file, format="wav")
+            audio_segment = full_audio[start_ms:end_ms]
+            temp_file = "temp_segment.wav"
+            audio_segment.export(temp_file, format="wav")
 
-        result = model.transcribe(temp_file, task="translate", language=language)
-        translated_texts.append(result['text'])
+            result = model.transcribe(temp_file, task="translate", language=current_language)
+            translated_texts.append(result['text'])
 
-        os.remove(temp_file)
-        start_time = end_time
+            os.remove(temp_file)
+
+            # Update the start time and current language
+            start_time = end_time - 1
+            current_language = language
+
+    # Process the final segment
+    start_ms = start_time * 1000
+    end_ms = len(full_audio)  # Till the end of the audio
+    audio_segment = full_audio[start_ms:end_ms]
+    temp_file = "temp_segment.wav"
+    audio_segment.export(temp_file, format="wav")
+
+    result = model.transcribe(temp_file, task="translate", language=current_language)
+    translated_texts.append(result['text'])
+    os.remove(temp_file)
 
     full_translation = ' '.join(translated_texts)
     return full_translation
-
-ds = datasets.load_dataset("CAiRE/ASCEND")
-train = pd.DataFrame(ds["train"])
-my_wav = train.at[9606, 'path']
-audio = AudioSegment.from_wav(my_wav)
-audio.export("test_audio.wav", format="wav")
-audio_path = "test_audio.wav"
-audio_path = "test_audio.wav"
-segments_dict = {3: 'zh', 6: 'en', 8: 'zh', 9: 'en', 10: 'zh'}
-translation = translate_audio(audio_path, segments_dict)
-print(translation)
